@@ -803,7 +803,13 @@ function md(text){
   return t;
 }
 function alertHtml(icon,text,color){return '<div style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:'+color+'18;border-radius:12px;border-left:3px solid '+color+';margin-bottom:12px;font-size:12px;color:var(--muted);line-height:1.6"><span style="font-size:16px;flex-shrink:0">'+icon+'</span><div>'+text+'</div></div>';}
-function errCard(err,view){var msg=err&&err.message?err.message:String(err);var d=document.createElement('div');d.style.cssText='padding:20px;color:#ef4444;background:rgba(239,68,68,.1);margin:16px;border-radius:12px;border:1px solid rgba(239,68,68,.3);font-family:system-ui';d.innerHTML='<div style="font-size:12px;font-weight:800;margin-bottom:8px">Error: '+escHtml(view)+'</div><div style="font-size:13px">'+escHtml(msg)+'</div>';return d.outerHTML;}
+function errCard(err,view){
+  var msg=err&&err.message?err.message:String(err||'Unknown error');
+  var label=view?esc(view)+': ':'';
+  return '<div style="padding:20px;color:#ef4444;background:rgba(239,68,68,.1);margin:16px;border-radius:12px;border:1px solid rgba(239,68,68,.3)">'
+    +'<div style="font-size:13px;font-weight:800;margin-bottom:6px">Error: '+label+'</div>'
+    +'<div style="font-size:12px">'+esc(msg)+'</div></div>';
+}
 function getActiveJob(){var apps=STATE&&STATE.apps?STATE.apps:[];var genCo=ls('apex_gen_company','')||load('genComp','')||(STATE&&STATE.genComp)||'';var genTitle=ls('apex_gen_title','')||load('genTitle','')||(STATE&&STATE.genTitle)||'';if(genCo){var match=apps.find(function(a){return a.company===genCo||(genTitle&&a.title===genTitle);});if(match)return match;return{company:genCo,title:genTitle};}return null;}
 function ptrack(pct,color){color=color||'var(--gold)';return '<div style="height:4px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,Math.max(0,pct||0))+'%;background:'+color+';border-radius:4px;transition:width .4s"></div></div>';}
 
@@ -1243,7 +1249,7 @@ async function callClaude(sys,user){
       if(r.status===429)msg='Rate limited — wait 30 seconds and retry.';}catch{}
     throw new Error(msg);
   }
-  const d=await r.json();
+  var  d=await r.json();
   if(!d.content||!d.content.length)throw new Error('Empty API response.');
   return d.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
 }
@@ -1678,8 +1684,8 @@ function toggleVol(i){
 // ═══════════════════════════════════════════════════════════
 function renderInterview(){
   var t=STATE.ivTab;
-  var labels={readiness:'&#128202; Readiness',practice:'&#127908; Practice',stories:'&#11088; Stories',qa:'&#10067; Q&amp;A',voice:'&#127908; Voice',articulate:'&#128172; Articulate',panel:'&#128101; Panel',peer:'&#129309; Peer',phone:'&#128222; Phone',stealth:'&#127899; Live IV',webcam:'&#128247; Webcam'};
-  var tabs=['readiness','practice','stories','qa','voice','articulate','panel','peer','phone','stealth','webcam'];
+  var labels={readiness:'&#128202; Readiness',practice:'&#127908; Practice',stories:'&#11088; Stories',qa:'&#10067; Q&amp;A',voice:'&#127908; Voice',articulate:'&#128172; Articulate',panel:'&#128101; Panel',peer:'&#129309; Peer',phone:'&#128222; Phone',stealth:'&#127899; Live IV',webcam:'&#128247; Webcam',written:'&#128203; Written Exam'};
+  var tabs=['readiness','practice','stories','qa','voice','articulate','panel','peer','phone','stealth','webcam','written'];
   var bar='<div class="tabs cnt" style="padding-bottom:0;padding-top:14px">';
   for(var i=0;i<tabs.length;i++){
     var id=tabs[i];
@@ -1858,9 +1864,9 @@ function renderJobs(){
   var t=STATE.jobsTab||'tracker';
   var tabLabels={tracker:'📋 Tracker',generate:'📄 Documents',search:'🔍 Search',campaign:'🎯 Campaign'};
   var tabBar='<div class="tabs cnt" style="padding-bottom:0;padding-top:14px">';
-  ['tracker','archive','generate','search','campaign'].forEach(function(id){
+  ['tracker','archive','generate','search','campaign','prepHQ'].forEach(function(id){
     var cls='tab'+(t===id?' on':'');
-    var lbl={tracker:'&#128203; Tracker',archive:'&#128451; Archive',generate:'&#128196; Documents',search:'&#128269; Search',campaign:'&#127919; Campaign'}[id]||id;
+    var lbl={tracker:'&#128203; Tracker',archive:'&#128451; Archive',generate:'&#128196; Documents',search:'&#128269; Search',campaign:'&#127919; Campaign',prepHQ:'&#127945; Zero-In'}[id]||id;
     tabBar+='<button class="'+cls+'" data-tab="'+id+'" onclick="setSilent(&quot;jobsTab&quot;,this.dataset.tab);render()">'+lbl+'</button>';
   });
   tabBar+='</div>';
@@ -1869,6 +1875,7 @@ function renderJobs(){
     if(t==='tracker')body=renderTracker();
     else if(t==='archive')body=renderArchive();
     else if(t==='campaign')body=renderCampaign();
+    else if(t==='prepHQ')body=renderPrepHQ();
     else if(t==='generate')body=renderGenerate();
     else body=renderSearch();
   }catch(e){body=errCard(e,'Jobs: '+t);}
@@ -2446,7 +2453,7 @@ function renderLiToday(){
     <div class="ch" style="background:var(--li)"><div class="ch-l">☀️ Today\'s Tasks — ${new Date().toLocaleDateString('en-CA',{weekday:'long'})}</div></div>
     <div style="padding:4px 0">
     ${LINKEDIN_DAILY.map((task,i)=>{
-      const done=STATE.tasksDone[task.id];
+      var  done=STATE.tasksDone[task.id];
       const pc=task.priority==='Critical'?'#dc2626':task.priority==='High'?'#d97706':'#0d9488';
       return `<div style="padding:13px 15px;${i<LINKEDIN_DAILY.length-1?'border-bottom:1px solid var(--b1)':''}}">
         <div style="display:flex;gap:12px;align-items:flex-start">
@@ -2653,7 +2660,7 @@ function syncLog(){
   });
   // Sync practice sessions
   STATE.iHistory.slice(0,5).forEach((h,i)=>{
-    const id=`prac_${h.id||i}`;
+    var  id=`prac_${h.id||i}`;
     if(!existingIds.has(id)){
       newEntries.push({id,type:'interview_practice',date:h.date,day:daysSince(h.date),
         title:`Interview Practice: ${(h.q&&h.q.slice(0,50)||'')}…`,
@@ -2965,7 +2972,6 @@ async function runIntelResearch(){
       companyContext:'COMPANY: '+company+'\nROLE: '+role+'\n\nKEY CONTEXT:\n'+companyResearch.slice(0,1500)
     };
     
-function saveAndArchiveIntel(intel){ saveAndArchiveIntel(intel); if(intel&&intel.company) archiveIntel(intel); }
 saveAndArchiveIntel(intel);
     // Update gen defaults
     sv('pro_gen_company',company);sv('pro_gen_title',role);
@@ -3053,7 +3059,7 @@ function renderFactSheet(){
   if(!intel){
     h=alertHtml('&#128196;','Run Company Research first to generate your Fact Sheet.','var(--muted)');
     h+='<button class="btn btn-gold btn-full" onclick="intelTab(&quot;research&quot;,null)">&#128269; Go to Research</button>';
-    el('intel-tab-factsheet').innerHTML=h;return;
+    var _e=el('intel-tab-factsheet');if(_e)_e.innerHTML=h;return;
   }
   // Generate condensed fact sheet from stored research
   const factKey='pro_fact_sheet_'+intel.company.replace(/\s/g,'');
@@ -3070,7 +3076,7 @@ function renderFactSheet(){
     h+='<div style="font-size:12px;color:var(--muted);padding:16px;text-align:center">Tap Generate to build your fact sheet from the research</div>';
   }
   h+='</div>';
-  el('intel-tab-factsheet').innerHTML=h;
+  var _el2=el('intel-tab-factsheet');if(_el2)_el2.innerHTML=h;
 }
 
 async function genFactSheet(){
@@ -3100,7 +3106,7 @@ function renderDossier(){
   if(!intel){
     h=alertHtml('&#128218;','Run Company Research first to generate your full Dossier.','var(--muted)');
     h+='<button class="btn btn-gold btn-full" onclick="intelTab(&quot;research&quot;,null)">&#128269; Go to Research</button>';
-    el('intel-tab-dossier').innerHTML=h;return;
+    var _e=el('intel-tab-dossier');if(_e)_e.innerHTML=h;return;
   }
   h=alertHtml('&#128218;','Full intelligence dossier — detailed analysis of company, positioning, gaps, negotiation strategy, and cultural fit. Reference before final rounds and offers.','var(--purple)');
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
@@ -3117,7 +3123,7 @@ function renderDossier(){
   if(intel.positioning){
     h+='<div class="card"><div class="card-head" style="background:rgba(59,111,240,.1)"><div class="card-head-title" style="color:var(--blue)">&#127919; Your Positioning Analysis</div></div><div style="padding:14px;font-size:13px;line-height:1.9">'+md(intel.positioning)+'</div></div>';
   }
-  el('intel-tab-dossier').innerHTML=h;
+  var _el2=el('intel-tab-dossier');if(_el2)_el2.innerHTML=h;
 }
 
 // ── ORG CHART ─────────────────────────────────────────────────────────
@@ -3126,7 +3132,7 @@ function renderOrgChart(){
   let h='';
   if(!intel){
     h=alertHtml('&#127970;','Run Company Research first to generate your Org Chart.','var(--muted)');
-    el('intel-tab-orgchart').innerHTML=h;return;
+    var __t=el('intel-tab-orgchart');if(__t)__t.innerHTML=h;return;
   }
   h=alertHtml('&#127970;','AI-generated organizational map based on research. Use this to identify key stakeholders before you apply, and to understand the decision-making chain during negotiations.','var(--teal)');
   if(intel.orgChart){
@@ -3139,7 +3145,7 @@ function renderOrgChart(){
     h+='<button class="btn btn-teal btn-full" onclick="regenOrgChart()">&#9889; Generate Org Chart</button>';
     h+='<div id="org-gen-out" style="margin-top:12px"></div>';
   }
-  el('intel-tab-orgchart').innerHTML=h;
+  var __t=el('intel-tab-orgchart');if(__t)__t.innerHTML=h;
 }
 
 async function regenOrgChart(){
@@ -3369,7 +3375,7 @@ function renderEmailSend(){
   if(!isEmailConfigured()){
     h+=alertHtml('&#9993;','EmailJS not configured yet — set it up below to send directly from APEX. Or use Gmail / Outlook links at the bottom.','var(--gold)');
     h+=renderEmailSetup();
-    el('email-tab-send').innerHTML=h;return;
+    var __t=el('email-tab-send');if(__t)__t.innerHTML=h;return;
   }
 
   var toValue=isEmailApp&&appEmail?appEmail:'';
@@ -3416,7 +3422,7 @@ function renderEmailSend(){
   h+='</div>';
   h+='<div id="send-out" style="margin-top:12px"></div></div></div>';
 
-el('email-tab-send').innerHTML=h;
+var __t=el('email-tab-send');if(__t)__t.innerHTML=h;
 }
 
 async function genEmailFromProfile(){
@@ -3479,7 +3485,7 @@ async function sendEmail(){
 function renderEmailSent(){
   const sent=ls('pro_emails_sent',[]);
   let h=alertHtml('&#128229;',sent.length+' email'+(sent.length!==1?'s':'')+' sent through APEX. Mark replied when you hear back.','var(--muted)');
-  if(!sent.length){el('email-tab-sent').innerHTML=h+'<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">No emails sent yet.</div>';return;}
+  if(!sent.length){var _est=el('email-tab-sent');if(_est)_est.innerHTML=h+'<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px">No emails sent yet.</div>';return;}
   sent.slice(0,30).forEach((e,i)=>{
     const daysAgo=Math.floor((Date.now()-new Date(e.sentDate))/86400000);
     const c=e.replied?'var(--green)':daysAgo>=14?'var(--red)':daysAgo>=7?'var(--gold)':'var(--muted)';
@@ -3495,7 +3501,7 @@ function renderEmailSent(){
       +(e.replied?'':'<button class="btn btn-gold btn-xs" onclick="genFollowUpFor(\''+esc(e.to)+'\',\''+esc(e.company)+'\','+Math.floor((Date.now()-new Date(e.sentDate))/86400000)+')">&#9889; Generate Follow-Up</button>')
       +'</div></div></div>';
   });
-  el('email-tab-sent').innerHTML=h;
+  var __t=el('email-tab-sent');if(__t)__t.innerHTML=h;
 }
 
 function markReplied(i){const s=ls('pro_emails_sent',[]);if(s[i]){s[i].replied=true;s[i].repliedDate=todayStr();}sv('pro_emails_sent',s);renderEmailSent();}
@@ -3529,14 +3535,14 @@ function renderFollowUpTracker(){
   });
   const upcoming=followups.filter(f=>{
     if(f.replied||f.dismissed)return false;
-    const days=Math.floor((now-new Date(f.sentDate))/86400000);
+    var  days=Math.floor((now-new Date(f.sentDate))/86400000);
     return days<f.followUpDays;
   });
   let h='';
   if(due.length){
     h+='<div style="font-size:11px;font-weight:800;color:var(--red);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">&#128680; '+due.length+' Follow-Up'+(due.length!==1?'s':'')+' Due Now</div>';
     due.forEach((f,i)=>{
-      const days=Math.floor((now-new Date(f.sentDate))/86400000);
+      var days=Math.floor((now-new Date(f.sentDate))/86400000);
       h+='<div class="card" style="border-color:rgba(224,60,60,.4);margin-bottom:9px"><div style="padding:13px 14px">'
         +'<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:3px">'+esc(f.company||f.to)+'</div>'
         +'<div style="font-size:11px;color:var(--muted)">'+f.type+' sent '+f.sentDate+' ('+days+' days ago)</div>'
@@ -3562,7 +3568,7 @@ function renderFollowUpTracker(){
   if(!due.length&&!upcoming.length){
     h=alertHtml('&#10003;','No follow-ups needed right now. Every sent email with a follow-up schedule appears here automatically.','var(--green)');
   }
-  el('email-tab-followup').innerHTML=h;
+  var __t=el('email-tab-followup');if(__t)__t.innerHTML=h;
 }
 
 function markFollowUpDone(i,status){
@@ -3664,7 +3670,7 @@ function renderQuickFill(){
     +'<strong style="color:#fff">Best approach:</strong> Use APEX in split-screen on iPad, or on desktop with two windows side by side.<br><br>'
     +'<strong style="color:#fff">Auto-fill extension (coming):</strong> The APEX browser extension (see Profile → Settings → Extension) reads your profile from this app and fills forms automatically on any company career site.</div></div>';
 
-  el('email-tab-autofill').innerHTML=h;
+  var __t=el('email-tab-autofill');if(__t)__t.innerHTML=h;
 }
 
 // ══════════════════════════════════════════
@@ -4219,6 +4225,8 @@ Profile these 3 roles at ${company} (use their actual likely titles if known):
   return prompts[chunkId]||'Research '+company+' for the role of '+role;
 }
 
+
+function saveAndArchiveIntel(intel){ sv('pro_company_intel',intel); if(intel&&intel.company) archiveIntel(intel); }
 async function runResumableResearch(jobId,company,role,url,namesRaw,context,onProgress){
   // Initialize or resume job-specific data
   const apps=getApps();
@@ -4361,8 +4369,7 @@ function updateLegacyIntel(jobId,company,role,chunkId,result,allChunks){
     existing.researchDate=todayStr();
     existing.jobId=jobId;
   }
-  sv('pro_company_intel',existing);
-  sv('pro_company_intel',existing);
+  saveAndArchiveIntel(existing);
 }
 
 async function callClaudeWithTimeout(sys,user,maxTokens,timeoutMs){
@@ -4385,7 +4392,7 @@ async function callClaudeWithTimeout(sys,user,maxTokens,timeoutMs){
       const e=new Error(msg);
       throw e;
     }
-    const d=await r.json();
+    var  d=await r.json();
     clearTimeout(tid);
     return d.content.filter(b=>b.type==='text').map(b=>b.text).join('\n');
   }catch(e){
@@ -4425,7 +4432,6 @@ function renderIntelResearch(){
   var h='';
   // Default to archive view; form only when explicitly requested
   if(!STATE.intelView||STATE.intelView==='archive'){
-    var h='';
     h+=renderIntelArchive();
     // Also show active intel fact sheet if one is loaded
     var activeCo=STATE.intelReviewCo||'';
@@ -4434,12 +4440,12 @@ function renderIntelResearch(){
       h+=renderFactSheet();
       h+='</div>';
     }
-    return h;
+    (function(){var _p=document.getElementById('intel-tab-research');if(_p)_p.innerHTML=h;})(); return h;
   }
   // else: show the research form
   // Auto-populate from active job
   const activeJob=getActiveJob();
-  const intel=ls('pro_company_intel',null);
+  // Form fields are blank — no stale intel read
   // Form starts blank unless opened from a specific job context
   // Only pre-fill if explicitly launched from a job card (not from general Intel nav)
   const _fromJob = window._intelFromJob || false;
@@ -4486,7 +4492,7 @@ function renderIntelResearch(){
 
   // ── CURRENT RESEARCH SUMMARY ────────────────────────────────────
   if(intel&&intel.company&&researchState.completedChunks&&researchState.completedChunks.length>0){
-    const score=researchState.score||0;
+    var  score=researchState.score||0;
     const scoreC=score>=80?'var(--green)':score>=50?'var(--gold)':'var(--blue)';
     h+='<div class="card" style="border-color:'+scoreC+'44"><div style="padding:14px 15px">'
       +'<div style="display:flex;gap:14px;align-items:center;margin-bottom:10px">'
@@ -4712,7 +4718,7 @@ function renderATSScanner(){
       +'<button class="btn btn-gold btn-xs" onclick="renderATSRewrite()">&#9889; Rewrite for '+esc(ATS_PL(ATFORMS=ATS_PLATFORMS)[lastScan.platformKey||'generic']&&ATS_PLATFORMS[lastScan.platformKey||'generic'].name||'ATS')+'</button>'
       +'</div></div></div>';
   }
-  el('jobs-tab-ats').innerHTML=h;
+  var __t=el('jobs-tab-ats');if(__t)__t.innerHTML=h;
 }
 
 async function runATSScan(){
@@ -4829,7 +4835,7 @@ function renderVoiceCoach(){
     +'<strong style="color:#fff">Answer Length:</strong> 90-120 seconds ideal for behavioral. 30-45 for direct questions.<br>'
     +'<strong style="color:#fff">Confidence Language:</strong> Lead with "I led", "I built", "I delivered" — not "I tried" or "I helped".</div></div>';
 
-  el('iv-tab-voice').innerHTML=h;
+  var __t=el('iv-tab-voice');if(__t)__t.innerHTML=h;
 }
 
 function toggleVoiceRecording(){
@@ -4880,7 +4886,7 @@ function highlightFillers(text){
     result=result.replace(re,'<mark style="background:rgba(224,60,60,.3);color:var(--red);border-radius:3px">$&</mark>');
   });
   WEAK_PHRASES.forEach(wp=>{
-    const re=new RegExp(wp.replace(/\s+/g,'\\s+'),'gi');
+    var  re=new RegExp(wp.replace(/\s+/g,'\\s+'),'gi');
     result=result.replace(re,'<mark style="background:rgba(217,119,6,.2);color:var(--gold);border-radius:3px">$&</mark>');
   });
   return result;
@@ -5037,7 +5043,7 @@ function renderResumePDFStudio(){
       +'The formatted view opens in the same page — use browser back to return.</div>';
   }
   h+='</div></div>';
-  el('jobs-tab-resumepdf').innerHTML=h;
+  var __t=el('jobs-tab-resumepdf');if(__t)__t.innerHTML=h;
 }
 
 function openResumePrintTemplate(templateId,resumeText){
@@ -5194,7 +5200,7 @@ function renderJobAutoLoader(){
     h+='</div></div>';
   }
 
-  el('jobs-tab-autoload').innerHTML=h;
+  var __t=el('jobs-tab-autoload');if(__t)__t.innerHTML=h;
 }
 
 async function runJobAutoLoad(){
@@ -5400,7 +5406,7 @@ async function iterativeResumeLoop(){
       2000
     );
     currentResume=rewriteResult;
-    if(bar){const dots=bar.querySelectorAll('.chunk-dot');dots.forEach((d,j)=>d.className='chunk-dot '+(j<=i?'done':''));}
+    if(bar){var  dots=bar.querySelectorAll('.chunk-dot');dots.forEach((d,j)=>d.className='chunk-dot '+(j<=i?'done':''));}
   }
 
   // Save best version
@@ -5714,7 +5720,7 @@ function renderAnalyticsDashboard(){
     h+='<div class="card"><div class="card-head"><div class="card-head-title">&#128188; Applications by Status</div></div><div class="card-body">';
     const statusColors={'Not Applied':'var(--muted)','Applied':'var(--blue)','Interview':'var(--purple)','Follow-Up':'var(--gold)','Offer':'var(--green)','Declined':'var(--red)'};
     Object.entries(byStatus).forEach(([status,count])=>{
-      const pct=Math.round((count/apps.length)*100);const c=statusColors[status]||'var(--muted)';
+      var  pct=Math.round((count/apps.length)*100);const c=statusColors[status]||'var(--muted)';
       h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
         +'<span style="font-size:13px;color:'+c+';font-weight:600">'+status+'</span>'
         +'<span style="font-size:13px;font-weight:700;color:#fff">'+count+' <span style="font-size:11px;color:var(--muted)">('+pct+'%)</span></span>'
@@ -5751,7 +5757,7 @@ function renderAnalyticsDashboard(){
       :'&#127919; Early stage — focus on applications and company research')
     +'</div></div></div>';
 
-  el('settings-analytics-out').innerHTML=h;
+  var __t=el('settings-analytics-out');if(__t)__t.innerHTML=h;
 }
 
 // ══════════════════════════════════════════
@@ -6144,7 +6150,7 @@ function renderCareerMode(){
   h+='<button class="btn btn-gold btn-full" style="margin-top:4px" id="mode-plan-btn" onclick="genSituationPlan()">&#9889; Generate My '+esc(cfg.label)+' Action Plan</button>';
   h+='<div id="mode-plan-out" style="margin-top:12px"></div>';
 
-  el('career-mode-content').innerHTML=h;
+  var __t=el('career-mode-content');if(__t)__t.innerHTML=h;
 
   // Update topbar
   const tb=el('career-mode-topbar');if(tb)tb.textContent=cfg.label;
@@ -6351,7 +6357,7 @@ function renderArticulate(){
     +'<button class="btn btn-gold btn-full" id="artic-btn" onclick="genArticulationCoach()">&#9889; Coach Me on This</button>'
     +'<div id="artic-out" style="margin-top:12px"></div></div></div>';
 
-  el('iv-tab-articulate').innerHTML=h;
+  var __t=el('iv-tab-articulate');if(__t)__t.innerHTML=h;
   // Generate today's scenario
   generateNewScenario();
 }
@@ -6655,7 +6661,7 @@ async function submitPeerAnswer(){
     );
     session.messages.push({role:'peer',content:response.trim()});
   } else {
-    const ctx=session.messages.map(m=>(m.role==='user'?'Candidate: ':'Peer: ')+m.content).join('\n\n');
+    var  ctx=session.messages.map(m=>(m.role==='user'?'Candidate: ':'Peer: ')+m.content).join('\n\n');
     const debrief=await callClaude(
       'You are '+session.peerName+', wrapping up a peer practice session. Give honest, specific feedback as a colleague who genuinely wants them to succeed.',
       'Session transcript:\n'+ctx+'\n\nGive your honest peer debrief:\n## What You Did Well\n## Where I Would Push You To Sharpen\n## The One Thing That Will Make The Biggest Difference\n## My Honest Read — Would You Get The Job?',
@@ -7449,34 +7455,7 @@ function exportLogToQABank() {
 }
 
 // ── UPGRADE renderQABank to include captured Q&A ──────────────────────
-const _origRenderQABank = renderQABank;
-function renderQABank() {
-  const orig = _origRenderQABank();
-  const captured = ls('apex_captured_qa', []);
-  if (!captured.length) return orig;
-
-  const capturedSection = `
-  <div style="font-size:10px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--b1)">
-    &#128220; From Your Interviews (${captured.length} captured)
-  </div>
-  ${captured.slice(0, 50).map((entry, i) => `
-  <div class="card" style="margin-bottom:8px;border-color:rgba(26,173,94,.3)">
-    <div style="padding:11px 14px;cursor:pointer" onclick="tog('cap-qa-${i}')">
-      <div style="font-size:13px;font-weight:700;color:#fff">${esc(entry.q.slice(0, 80))}${entry.q.length > 80 ? '...' : ''}</div>
-      <div style="font-size:10px;color:var(--green);margin-top:2px">&#10003; Answer captured</div>
-    </div>
-    <div id="cap-qa-${i}" style="display:none;border-top:1px solid var(--b1);padding:11px 14px">
-      <div style="font-size:12px;color:var(--muted);line-height:1.7;padding:8px 10px;background:rgba(26,173,94,.06);border-radius:8px;border-left:3px solid var(--green)">${esc(entry.a)}</div>
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <button class="btn btn-ghost btn-xs" id="cqa-cp-${i}" style="color:var(--muted)" onclick="copyText(this.dataset.text,'cqa-cp-${i}')" data-text="${esc(entry.a)}">Copy</button>
-        <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="deleteCapturedQA(${i})">Remove</button>
-      </div>
-    </div>
-  </div>`).join('')}
-  ${captured.length > 50 ? `<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px">${captured.length - 50} more — scroll up for full list</div>` : ''}`;
-
-  return orig + capturedSection;
-}
+// renderQABank wrapper disabled — was causing infinite recursion
 
 function deleteCapturedQA(idx) {
   const captured = ls('apex_captured_qa', []);
@@ -8848,6 +8827,7 @@ function getPortfolioData(){
 function savePortfolio(d){ sv('apex_portfolio',d); }
 
 function calcPortfolioScore(data){
+  if(!data) data=getPortfolioData()||{}; data.items=data.items||[]; data.approved=data.approved||[];
   var items=data.items||[];
   var total=PORTFOLIO_BUCKETS.reduce(function(s,b){return s+b.weight;},0);
   var earned=0;
@@ -8911,6 +8891,7 @@ function renderPortfolio(){
 
 // ── AI-GUIDED BUILD TAB ──────────────────────────────────────────
 function renderPFBuild(pf,score){
+  if(!pf) pf=getPortfolioData()||{}; pf.items=pf.items||[]; pf.session=pf.session||null; pf.approved=pf.approved||[];
   var h='';
   var session=pf.session||[];
   var phase=pf.phase||'intro';
@@ -8996,6 +8977,7 @@ function renderPFBuild(pf,score){
 
 // ── Items tab ────────────────────────────────────────────────────
 function renderPFItems(pf){
+  if(!pf) pf=getPortfolioData()||{}; pf.items=pf.items||[]; pf.session=pf.session||null; pf.approved=pf.approved||[];
   var items=pf.items||[];
   var h='';
   if(items.length===0){
@@ -9507,6 +9489,8 @@ function renderCoder(){
 }
 
 function renderCoderTrackChoice(cd, prog){
+  cd=cd||getCoderData()||{};cd.js=cd.js||{};cd.python=cd.python||{};cd.career=cd.career||{};
+  prog=prog||calcCoderScore(cd)||{};
   var h='';
   h+=alertHtml('🧑‍💻','Each track is practical-first. No setup required — your first lesson runs inside APEX. Pick where you want to start.','var(--purple)');
 
@@ -9538,6 +9522,9 @@ function renderCoderTrackChoice(cd, prog){
 }
 
 function renderCoderSession(cd, prog){
+  cd=cd||getCoderData()||{};cd.activeTrack=cd.activeTrack||null;cd.progress=cd.progress||{};cd.session=cd.session||[];cd.phase=cd.phase||'choose';
+  prog=prog||{};
+  if(!cd.activeTrack) return '<div style="padding:20px;color:var(--muted);text-align:center">Select a track to begin.</div>';
   var track=CODER_TRACKS.find(function(t){return t.id===cd.activeTrack;});
   if(!track)return '<button class="btn btn-xs bg-ghost" onclick="coderBack()">Back</button>';
   var lesson=track.levels.find(function(l){return l.id===cd.activeLesson;})||track.levels[0];
@@ -10383,6 +10370,8 @@ function renderBizCenter(){
 }
 
 function renderBizRoadmap(biz,prog){
+  biz=biz||getBizData()||{};biz.completedMilestones=biz.completedMilestones||{};biz.revenue=biz.revenue||[];biz.clients=biz.clients||[];
+  prog=prog||{pct:0,done:0,total:0};
   var h='';
   BIZ_PHASES.forEach(function(phase){
     var doneMilestones=phase.milestones.filter(function(m){return biz.completedMilestones[m.id];}).length;
@@ -12401,6 +12390,8 @@ async function filterDeadJobs(jobs){
   return {jobs:results, skipped:skippedDead};
 
 // ═══════════════════════════════════════════════════════════
+}
+
 // INTEL ARCHIVE — multi-company research storage
 // Each company gets its own isolated intel object.
 // No contamination between companies. Ever.
@@ -12537,7 +12528,824 @@ function renderIntelArchive(){
   return h;
 }
 
-}</script>
+
+function renderQABank(){
+  var h='';
+  var stages=QA_BANK||[];
+  stages.forEach(function(stage){
+    h+='<div style="margin-bottom:14px">';
+    h+='<div style="font-size:10px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">'+esc(stage.type||stage.stage||'')+'</div>';
+    (stage.questions||[]).forEach(function(qa){
+      h+='<div style="background:var(--s1);border-radius:10px;padding:11px 13px;margin-bottom:7px;border:1px solid var(--b1)">';
+      h+='<div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:5px">'+esc(qa.q||qa||'')+'</div>';
+      if(qa.a)h+='<div style="font-size:11px;color:var(--muted)">'+esc(qa.a)+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  });
+  var captured=ls('apex_captured_qa',[]);
+  if(captured.length>0){
+    h+='<div style="font-size:10px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)">Your Captured Q&A ('+captured.length+')</div>';
+    captured.forEach(function(qa){
+      h+='<div style="background:rgba(22,163,74,.06);border-radius:10px;padding:11px 13px;margin-bottom:7px;border:1px solid rgba(22,163,74,.15)">';
+      h+='<div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:5px">'+esc(qa.q||'')+'</div>';
+      if(qa.a)h+='<div style="font-size:11px;color:var(--dim)">'+esc(qa.a)+'</div>';
+      if(qa.score)h+='<div style="font-size:10px;color:var(--green);margin-top:4px">Score: '+qa.score+'/10</div>';
+      h+='</div>';
+    });
+  }
+  return h||'<div style="padding:20px;color:var(--muted);text-align:center">No Q&A data loaded.</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WRITTEN ASSESSMENT ENGINE
+// Converts government written exercises into your voice using your
+// actual background. Then teaches you to understand every point.
+// ═══════════════════════════════════════════════════════════════════
+
+function getWrittenData(){
+  return ls('apex_written',{
+    lastAssignment:'',
+    lastRole:'',
+    lastContext:'',
+    sessions:[],
+  });
+}
+function saveWrittenData(d){ sv('apex_written',d); }
+
+function renderWrittenAssessment(){
+  var h='';
+  var d=getWrittenData();
+  var STATE_WT=STATE.writtenView||'input';
+
+  h+='<div style="margin-bottom:14px">';
+  h+='<div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:4px">&#128203; Written Assessment Engine</div>';
+  h+='<div style="font-size:12px;color:var(--muted)">Paste any government written exercise. The engine drafts a response in YOUR voice using your actual background — then teaches you to understand and speak to every point.</div>';
+  h+='</div>';
+
+  // Tab bar
+  var tabs=[['input','&#9999; New Assignment'],['sessions','&#128190; Past Sessions']];
+  h+='<div style="display:flex;gap:6px;margin-bottom:14px">';
+  tabs.forEach(function(t){
+    var active=STATE_WT===t[0];
+    h+='<button class="btn btn-xs" style="'+(active?'background:var(--accent);color:#fff':'background:var(--s2);color:var(--dim);border:1px solid var(--b1)')+'" onclick="setSilent(\'writtenView\',\''+t[0]+'\');renderWrittenAssessment();">'+t[1]+'</button>';
+  });
+  h+='</div>';
+
+  if(STATE_WT==='sessions'){
+    h+=renderWrittenSessions();
+    return h;
+  }
+
+  // Active generation display
+  if(STATE.writtenLoading){
+    h+='<div style="background:var(--s1);border-radius:14px;padding:20px;margin-bottom:14px">';
+    h+='<div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:12px" id="written-status-label">Drafting your response...</div>';
+    h+='<div style="background:rgba(255,255,255,.08);border-radius:4px;height:8px;margin-bottom:16px">';
+    h+='<div id="written-progress-bar" style="background:linear-gradient(90deg,var(--accent),#16a34a);height:8px;border-radius:4px;width:15%;transition:width .5s"></div>';
+    h+='</div>';
+    var steps=[
+      ['draft','&#9999; Drafting response in your voice','Grounding every point in your real experience'],
+      ['learn','&#128218; Building your learning plan','Translating each concept into plain English'],
+      ['qa','&#127908; Generating interview Q&A','What the panel will likely ask and how to answer'],
+    ];
+    steps.forEach(function(st,i){
+      var isDone=STATE.writtenStep>i;
+      var isNow=STATE.writtenStep===i;
+      var col=isDone?'#16a34a':isNow?'var(--accent)':'rgba(255,255,255,.25)';
+      var bg=isDone?'rgba(22,163,74,.1)':isNow?'rgba(124,77,255,.15)':'rgba(255,255,255,.02)';
+      h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:'+bg+';margin-bottom:5px;border:1px solid '+(isNow?'rgba(124,77,255,.3)':'transparent')+'">';
+      h+='<div style="font-size:14px">'+st[0]+'</div>';
+      h+='<div style="flex:1"><div style="font-size:12px;font-weight:700;color:'+col+'">'+st[1]+'</div>';
+      h+='<div style="font-size:10px;color:var(--muted)">'+st[2]+'</div></div>';
+      if(isDone)h+='<div style="color:#16a34a;font-weight:900;font-size:14px">&#10003;</div>';
+      else if(isNow)h+='<span class="spin" style="width:14px;height:14px;border-width:2px;flex-shrink:0"></span>';
+      h+='</div>';
+    });
+    h+='</div>';
+    return h;
+  }
+
+  // Input form
+  h+='<div style="background:var(--s1);border-radius:14px;padding:16px;margin-bottom:14px">';
+  h+='<div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:10px">Assignment Details</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">';
+  h+='<div><label class="lbl">Role / Competition #</label><input class="inp" id="wt-role" placeholder="e.g. Category Lead PM3 — Competition 42113" value="'+esc(d.lastRole||'')+'"></div>';
+  h+='<div><label class="lbl">Department / Context</label><input class="inp" id="wt-context" placeholder="e.g. Procurement & Supply Chain, Gov MB" value="'+esc(d.lastContext||'')+'"></div>';
+  h+='</div>';
+  h+='<label class="lbl">Paste the Full Assignment Prompt <span style="color:var(--muted);font-weight:400">(include all criteria and instructions)</span></label>';
+  h+='<textarea class="ta" id="wt-assignment" rows="10" placeholder="Paste the written exercise prompt here — include the scenario, assignment requirements, and any evaluation criteria...">'+esc(d.lastAssignment||'')+'</textarea>';
+  h+='<div style="display:flex;gap:8px;margin-top:10px">';
+  h+='<button class="btn btn-full" style="background:var(--accent);color:#fff;font-weight:800;min-height:48px;font-size:14px" onclick="runWrittenAssessment()">&#9999; Generate Response + Learning Plan</button>';
+  h+='<button class="btn btn-xs bg-ghost" style="color:var(--muted)" onclick="document.getElementById(\'wt-assignment\').value=\'\';document.getElementById(\'wt-role\').value=\'\';document.getElementById(\'wt-context\').value=\'\';">Clear</button>';
+  h+='</div></div>';
+
+  // Results display
+  if(STATE.writtenResult){
+    var res=STATE.writtenResult;
+    h+='<div style="margin-bottom:8px">';
+    // Tab selector for results
+    var rtabs=[['response','&#128203; Draft Response'],['learn','&#128218; Learning Plan'],['qa','&#127908; Interview Prep']];
+    var rview=STATE.writtenResultView||'response';
+    h+='<div style="display:flex;gap:6px;margin-bottom:12px">';
+    rtabs.forEach(function(t){
+      var active=rview===t[0];
+      h+='<button class="btn btn-xs" style="'+(active?'background:var(--accent);color:#fff':'background:var(--s2);color:var(--dim);border:1px solid var(--b1)')+'" onclick="setSilent(\'writtenResultView\',\''+t[0]+'\');renderWrittenAssessment();">'+t[1]+'</button>';
+    });
+    h+='</div>';
+
+    if(rview==='response'){
+      h+='<div style="background:var(--s1);border-radius:14px;padding:16px;margin-bottom:10px">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+      h+='<div style="font-size:13px;font-weight:800;color:#fff">Your Draft Response</div>';
+      h+='<button class="btn btn-xs" style="background:rgba(22,163,74,.15);color:var(--green);border:1px solid rgba(22,163,74,.3)" onclick="copyText(document.getElementById(\'written-response-txt\').innerText,\'wt-copy-btn\')">&#128203; Copy</button>';
+      h+='</div>';
+      h+='<div id="written-response-txt" style="font-size:12px;color:var(--dim);line-height:1.7;white-space:pre-wrap">'+esc(res.response||'')+'</div>';
+      h+='</div>';
+      h+='<div style="font-size:10px;color:var(--muted);padding:8px 0">This response is grounded in your actual background. Read it carefully — every claim should match something you genuinely did. If a point does not reflect your experience, edit it before submitting.</div>';
+    }
+    else if(rview==='learn'){
+      h+='<div style="background:var(--s1);border-radius:14px;padding:16px;margin-bottom:10px">';
+      h+='<div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:10px">&#128218; Learning Plan — Understand Every Point</div>';
+      h+='<div id="written-learn-txt" style="font-size:12px;color:var(--dim);line-height:1.7;white-space:pre-wrap">'+esc(res.learning||'')+'</div>';
+      h+='</div>';
+    }
+    else if(rview==='qa'){
+      h+='<div style="background:var(--s1);border-radius:14px;padding:16px;margin-bottom:10px">';
+      h+='<div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:10px">&#127908; Interview Panel Prep</div>';
+      h+='<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Questions the panel will likely ask about your presentation — with suggested answers rooted in your background.</div>';
+      h+='<div id="written-qa-txt" style="font-size:12px;color:var(--dim);line-height:1.7;white-space:pre-wrap">'+esc(res.panelQA||'')+'</div>';
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+
+  return h;
+}
+
+function renderWrittenSessions(){
+  var d=getWrittenData();
+  var sessions=d.sessions||[];
+  var h='';
+  if(!sessions.length){
+    h+='<div style="text-align:center;padding:40px 20px;color:var(--muted)">';
+    h+='<div style="font-size:28px;margin-bottom:10px">&#128203;</div>';
+    h+='<div style="font-size:13px;font-weight:700;color:var(--dim)">No saved sessions yet</div>';
+    h+='<div style="font-size:11px;margin-top:6px">Complete your first assignment to save a session.</div>';
+    h+='</div>';
+    return h;
+  }
+  sessions.slice().reverse().forEach(function(s,i){
+    h+='<div style="background:var(--s1);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--b1)">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+    h+='<div><div style="font-size:13px;font-weight:700;color:#fff">'+esc(s.role||'Unknown Role')+'</div>';
+    h+='<div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(s.date||'')+'</div></div>';
+    h+='<button class="btn btn-xs bg-ghost" style="color:var(--accent)" data-idx="'+i+'" onclick="loadWrittenSession('+( sessions.length-1-i)+')">Load</button>';
+    h+='</div>';
+    if(s.context) h+='<div style="font-size:11px;color:var(--muted);margin-top:6px">'+esc(s.context)+'</div>';
+    h+='</div>';
+  });
+  return h;
+}
+
+function loadWrittenSession(idx){
+  var d=getWrittenData();
+  var s=d.sessions[idx];
+  if(!s) return;
+  setSilent('writtenResult',s.result||null);
+  setSilent('writtenResultView','response');
+  setSilent('writtenView','input');
+  // Pre-fill form fields via STATE
+  d.lastRole=s.role||'';
+  d.lastContext=s.context||'';
+  d.lastAssignment=s.assignment||'';
+  saveWrittenData(d);
+  render();
+}
+
+async function runWrittenAssessment(){
+  var role=(document.getElementById('wt-role')||{value:''}).value.trim();
+  var context=(document.getElementById('wt-context')||{value:''}).value.trim();
+  var assignment=(document.getElementById('wt-assignment')||{value:''}).value.trim();
+  if(!assignment||assignment.length<50){alert('Please paste the full assignment prompt (at least a few sentences).');return;}
+  if(!role){alert('Please enter the role or competition number.');return;}
+
+  // Save input
+  var d=getWrittenData();
+  d.lastRole=role; d.lastContext=context; d.lastAssignment=assignment;
+  saveWrittenData(d);
+
+  setSilent('writtenLoading',true);
+  setSilent('writtenStep',0);
+  setSilent('writtenResult',null);
+  render();
+
+  var profile=buildProfile();
+  var sys='You are an expert career coach and government procurement professional. '+getIntelligencePersona()+'\n\nThe candidate is:\n'+profile;
+
+  var result={};
+
+  try{
+    // Step 1: Draft response
+    setSilent('writtenStep',0);
+    renderWrittenAssessment();
+    var draftPrompt='ROLE: '+role+'\nCONTEXT: '+context+'\n\nASSIGNMENT:\n'+assignment+'\n\n---\n\nWrite a complete, professional response to this written assignment IN THE FIRST PERSON VOICE OF THE CANDIDATE. Requirements:\n\n1. Use ONLY experiences and knowledge the candidate actually has from their profile\n2. Be specific — reference real skills (SAP, Power BI, supply chain, stakeholder management)\n3. Match the tone of a senior government procurement professional\n4. Structure your response to address every required section in the assignment\n5. Do NOT fabricate qualifications or experiences not in the profile\n6. Write in clear, confident prose — no bullet points for the main response (use them only where the assignment structure demands it)\n7. Total length: 600–900 words\n\nBEGIN THE RESPONSE DIRECTLY — no preamble, no "Here is a response" introduction.';
+    var draft=await callClaude(sys,draftPrompt,3000);
+    result.response=draft;
+
+    // Step 2: Learning plan
+    setSilent('writtenStep',1);
+    renderWrittenAssessment();
+    var learnPrompt='ASSIGNMENT:\n'+assignment+'\n\nDRAFT RESPONSE:\n'+draft+'\n\n---\n\nCreate a personal LEARNING PLAN for the candidate so they can fully understand and speak confidently to every concept in this response during a live interview.\n\nFormat:\n\n## What You Need to Understand\n(3–5 key concepts used in the response, in plain English)\n\n## Concept by Concept Breakdown\n(For each major concept: plain English explanation, why it matters for this role, and one example from the candidate\'s own background that illustrates it)\n\n## How to Explain It Without Notes\n(5–8 "speaking points" — short, natural phrases the candidate can say in their own words)\n\n## Common Mistakes to Avoid\n(What candidates typically get wrong on this topic in interviews)\n\n## Study Plan\n(3 things to read/review before the interview, with a brief note on what to look for in each)';
+    var learning=await callClaude(sys,learnPrompt,2500);
+    result.learning=learning;
+
+    // Step 3: Panel Q&A
+    setSilent('writtenStep',2);
+    renderWrittenAssessment();
+    var qaPrompt='ROLE: '+role+'\nASSIGNMENT RESPONSE:\n'+draft+'\n\n---\n\nGenerate 8 questions the interview panel will likely ask about this presentation, with strong suggested answers for this candidate.\n\nFor each question:\n**Q: [Panel question]**\n**Why they\'re asking:** [1 sentence]\n**Strong answer:** [2–4 sentences using candidate\'s actual background. Start with a direct statement, then evidence, then outcome.]\n\nInclude: clarifying questions, deep-dive questions on methodology, challenge questions on assumptions, and a question about lessons learned/continuous improvement.';
+    var panelQA=await callClaude(sys,qaPrompt,2500);
+    result.panelQA=panelQA;
+
+    // Save session
+    var session={
+      role:role, context:context, assignment:assignment,
+      result:result,
+      date:fmtDate(new Date().toISOString().slice(0,10))+', '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),
+    };
+    d=getWrittenData();
+    d.sessions=d.sessions||[];
+    d.sessions.push(session);
+    if(d.sessions.length>10) d.sessions=d.sessions.slice(-10);
+    saveWrittenData(d);
+
+    setSilent('writtenResult',result);
+    setSilent('writtenResultView','response');
+
+  }catch(e){
+    alert('Error: '+e.message);
+  }finally{
+    setSilent('writtenLoading',false);
+    setSilent('writtenStep',-1);
+    render();
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ZERO-IN: ROLE PREPARATION HQ
+// Complete crash-course curriculum engine for any job application.
+// Detects level + industry, maps competencies, coaches every stage.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── COMPETENCY LIBRARY ────────────────────────────────────────────────────
+var PREP_COMPETENCY_DEFS = {
+  time_mgmt:        { name:'Time Management',          icon:'⏰', short:'Managing priorities, deadlines, multiple workstreams without dropping balls.' },
+  communication:    { name:'Communication',             icon:'💬', short:'Clear written and verbal expression tailored to the audience.' },
+  teamwork:         { name:'Collaboration & Teamwork',  icon:'🤝', short:'Working effectively within and across teams toward shared outcomes.' },
+  adaptability:     { name:'Adaptability',              icon:'🔄', short:'Adjusting approach when priorities shift, information changes, or plans fail.' },
+  problem_solving:  { name:'Problem Solving',           icon:'🧩', short:'Diagnosing root causes and delivering practical, defensible solutions.' },
+  attention_detail: { name:'Attention to Detail',       icon:'🔍', short:'Accuracy in documentation, analysis, and execution — errors matter here.' },
+  customer_service: { name:'Service Orientation',       icon:'🌟', short:'Identifying and meeting the needs of internal and external stakeholders.' },
+  initiative:       { name:'Initiative & Ownership',    icon:'🚀', short:'Acting without being asked; owning outcomes not just tasks.' },
+  delegation:       { name:'Delegation & Empowerment',  icon:'📋', short:'Assigning the right work to the right people and trusting them to deliver.' },
+  coaching:         { name:'Coaching & Development',    icon:'🎓', short:'Building capability in others; feedback that improves performance.' },
+  conflict_res:     { name:'Conflict Resolution',       icon:'⚖️', short:'Navigating disagreement to productive outcomes without damaging relationships.' },
+  presentation:     { name:'Presentation Skills',       icon:'🎤', short:'Compelling delivery to any audience — written decks, verbal briefings, Q&A.' },
+  stakeholder_mgmt: { name:'Stakeholder Management',    icon:'👥', short:'Identifying, engaging, and maintaining trust with all parties who matter.' },
+  project_mgmt:     { name:'Project Management',        icon:'📅', short:'Planning, tracking, and delivering work on scope, schedule, and budget.' },
+  strategic_think:  { name:'Strategic Thinking',        icon:'♟️', short:'Connecting day-to-day decisions to long-term organizational objectives.' },
+  budget_mgmt:      { name:'Financial Acumen',          icon:'💰', short:'Managing budgets, interpreting financials, justifying resource decisions.' },
+  change_mgmt:      { name:'Change Management',         icon:'🔀', short:'Planning and leading transitions that stick — people, process, systems.' },
+  report_writing:   { name:'Report & Business Writing', icon:'📝', short:'Clear, credible written products: briefing notes, reports, recommendations.' },
+  political_acumen: { name:'Political & Org Acumen',    icon:'🏛️', short:'Reading the room, understanding authority, navigating institutional dynamics.' },
+  exec_comm:        { name:'Executive Communication',   icon:'📊', short:'Briefing senior leaders concisely; translating complexity into decisions.' },
+  risk_mgmt:        { name:'Risk Management',           icon:'⚠️', short:'Identifying, assessing, and mitigating risks before they become problems.' },
+  resource_plan:    { name:'Resource Planning',         icon:'📦', short:'Allocating people, budget, and time across competing organizational needs.' },
+  governance:       { name:'Governance & Accountability',icon:'🔐', short:'Establishing and upholding frameworks that protect organizational integrity.' },
+  vision:           { name:'Vision & Direction Setting',icon:'🔭', short:'Setting clear purpose and rallying people around long-term organizational outcomes.' },
+  policy_dev:       { name:'Policy Development',        icon:'📜', short:'Designing, consulting on, and implementing policy that achieves intended outcomes.' },
+};
+
+// ── LEVEL COMPETENCY STACKS ───────────────────────────────────────────────
+var PREP_LEVELS = {
+  frontline: {
+    label:'Frontline / Individual Contributor',
+    range:'Analyst · Coordinator · Technician · Clerk · Officer I–II',
+    color:'2563EB',
+    competencies:['time_mgmt','communication','teamwork','adaptability','problem_solving','attention_detail','customer_service','initiative'],
+  },
+  supervisor: {
+    label:'Supervisor / Team Lead',
+    range:'Team Lead · Supervisor · Officer III · PM1–PM2',
+    color:'7C3AED',
+    competencies:['time_mgmt','communication','teamwork','adaptability','problem_solving','attention_detail','initiative','delegation','coaching','conflict_res','presentation','stakeholder_mgmt'],
+  },
+  manager: {
+    label:'Manager / Program Lead',
+    range:'Manager · PM3 · Director I · Senior Analyst',
+    color:'C8971F',
+    competencies:['communication','problem_solving','initiative','delegation','coaching','conflict_res','presentation','stakeholder_mgmt','project_mgmt','strategic_think','budget_mgmt','change_mgmt','report_writing'],
+  },
+  senior_mgr: {
+    label:'Senior Manager / Director',
+    range:'Director II–III · Senior Director · Assistant Deputy Minister',
+    color:'166534',
+    competencies:['communication','problem_solving','presentation','stakeholder_mgmt','strategic_think','budget_mgmt','change_mgmt','report_writing','political_acumen','exec_comm','risk_mgmt','resource_plan'],
+  },
+  executive: {
+    label:'Executive / C-Suite',
+    range:'Deputy Minister · CEO · VP · Executive Director',
+    color:'B91C1C',
+    competencies:['communication','strategic_think','political_acumen','exec_comm','risk_mgmt','governance','vision','policy_dev','change_mgmt','stakeholder_mgmt','report_writing','resource_plan'],
+  },
+};
+
+// ── INTERVIEW STAGES ─────────────────────────────────────────────────────
+var PREP_STAGES = [
+  { id:'written',    icon:'📝', name:'Written Exercise',    desc:'Take-home assignment or timed written test' },
+  { id:'phone',      icon:'📞', name:'Phone Screen',         desc:'15–30 min recruiter or manager screening call' },
+  { id:'video',      icon:'💻', name:'Video Interview',      desc:'Structured Zoom/Teams interview, often with notes' },
+  { id:'inperson1',  icon:'🤝', name:'In-Person (Single)',  desc:'One interviewer — often hiring manager' },
+  { id:'panel',      icon:'👥', name:'Panel Interview',      desc:'3–5 interviewers simultaneously evaluating you' },
+  { id:'multistage', icon:'🏁', name:'Multi-Stage Process',  desc:'Sequential rounds — strategy for maintaining momentum' },
+];
+
+// ── DATA FUNCTIONS ────────────────────────────────────────────────────────
+function getPrepHQData(){
+  return ls('apex_prep_hq',{ activeJobId:null, sessions:{} });
+}
+function savePrepHQData(d){ sv('apex_prep_hq',d); }
+
+function detectLevel(title, jd){
+  var text=(title+' '+(jd||'')).toLowerCase();
+  if(/\bvp\b|vice.?president|deputy.?minister|chief\b|c-suite|ceo|coo|cfo|executive.?director/.test(text)) return 'executive';
+  if(/\bsenior\s+director|assistant.?deputy|adm\b|senior.?manager/.test(text)) return 'senior_mgr';
+  if(/\bdirector\b|\bmanager\b|\bpm3\b|program.?lead|category.?lead/.test(text)) return 'manager';
+  if(/\bsupervisor\b|\bteam.?lead\b|\bpm2\b|\bpm1\b|\blead\b/.test(text)) return 'supervisor';
+  return 'frontline';
+}
+
+function detectIndustry(title, jd){
+  var text=(title+' '+(jd||'')).toLowerCase();
+  if(/procure|tender|rfp|rfq|sourcing|supply.?chain|vendor|contract.?mgmt|category/.test(text)) return 'Procurement & Supply Chain';
+  if(/health|clinical|nurs|patient|medical|hospital|mental/.test(text)) return 'Healthcare';
+  if(/information.?tech|software|developer|it\b|cyber|data.?science|cloud/.test(text)) return 'Technology';
+  if(/finance|accounting|audit|budget|fiscal|treasury|cpa/.test(text)) return 'Finance & Accounting';
+  if(/human.?resource|hr\b|talent|recruiting|labour.?relation|workforce/.test(text)) return 'Human Resources';
+  if(/project.?manage|pmo\b|delivery|implementation/.test(text)) return 'Project Management';
+  if(/marketing|communications|brand|digital|social.?media/.test(text)) return 'Marketing & Communications';
+  if(/education|teach|curriculum|school|universit|college/.test(text)) return 'Education';
+  if(/engineer|infrastructure|construction|facilities/.test(text)) return 'Engineering & Infrastructure';
+  if(/policy|research|government|public.?service|public.?sector/.test(text)) return 'Government & Public Policy';
+  return 'General / Professional Services';
+}
+
+// ── MAIN HUB RENDERER ────────────────────────────────────────────────────
+function renderPrepHQ(){
+  var d = getPrepHQData();
+  var view = STATE.prepView || 'home';
+  var h = '';
+
+  // Header
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">';
+  h += '<div>';
+  h += '<div style="font-size:16px;font-weight:800;color:#fff">&#127919; Zero-In — Role Preparation HQ</div>';
+  h += '<div style="font-size:11px;color:var(--muted);margin-top:3px">Complete curriculum for any job. Competencies &#183; Every interview stage &#183; Your made-for-this-role story.</div>';
+  h += '</div>';
+  if(view!=='home'){
+    h += '<button class="btn btn-xs bg-ghost" style="color:var(--muted)" onclick="setSilent(\'prepView\',\'home\');render()">&#8592; All Roles</button>';
+  }
+  h += '</div>';
+
+  if(view==='home') return h + renderPrepHome(d);
+  if(view==='config') return h + renderPrepConfig();
+  if(view==='dashboard') return h + renderPrepDashboard(d);
+  if(view==='competency') return h + renderPrepCompetencyView(d);
+  if(view==='stage') return h + renderPrepStageView(d);
+  if(view==='narrative') return h + renderPrepNarrativeView(d);
+  return h + renderPrepHome(d);
+}
+
+function renderPrepHome(d){
+  var sessions = d.sessions || {};
+  var keys = Object.keys(sessions);
+  var h = '';
+
+  // Add new job button
+  h += '<button class="btn btn-full" style="background:var(--accent);color:#fff;font-weight:800;min-height:48px;font-size:14px;margin-bottom:14px" onclick="setSilent(\'prepView\',\'config\');setSilent(\'prepConfigJob\',null);render()">&#43; Prepare for a Role</button>';
+
+  if(!keys.length){
+    h += '<div style="text-align:center;padding:40px 20px;color:var(--muted)">';
+    h += '<div style="font-size:36px;margin-bottom:12px">&#127919;</div>';
+    h += '<div style="font-size:14px;font-weight:700;color:var(--dim)">No preparation campaigns yet</div>';
+    h += '<div style="font-size:11px;margin-top:8px;max-width:280px;margin-left:auto;margin-right:auto">Select any job from your tracker or paste a job description to launch your crash-course preparation.</div>';
+    h += '</div>';
+    return h;
+  }
+
+  h += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:8px">Active Campaigns</div>';
+  keys.forEach(function(k){
+    var sess = sessions[k];
+    var lvl = PREP_LEVELS[sess.level] || PREP_LEVELS.manager;
+    var done = Object.keys(sess.generated||{}).length;
+    var total = (lvl.competencies.length) + PREP_STAGES.length + 1;
+    var pct = Math.round((done/total)*100);
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:13px;padding:13px 14px;margin-bottom:8px;cursor:pointer" onclick="setSilent(\'prepView\',\'dashboard\');setSilent(\'prepActiveKey\',\''+k+'\');render()">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">';
+    h += '<div><div style="font-size:13px;font-weight:700;color:#fff">'+esc(sess.title||'Unknown Role')+'</div>';
+    h += '<div style="font-size:10px;color:var(--muted);margin-top:2px">'+esc(sess.company||'')+'</div></div>';
+    h += '<div style="text-align:right"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba('+hexToRgb(lvl.color)+',0.15);color:#'+lvl.color+'">'+esc(lvl.label.split('/')[0].trim())+'</span></div>';
+    h += '</div>';
+    h += '<div style="background:rgba(255,255,255,.08);border-radius:3px;height:4px;margin-bottom:4px">';
+    h += '<div style="background:var(--accent);height:4px;border-radius:3px;width:'+pct+'%"></div></div>';
+    h += '<div style="font-size:10px;color:var(--muted)">'+pct+'% prep complete &#183; '+esc(sess.industry||'')+'</div>';
+    h += '</div>';
+  });
+  return h;
+}
+
+function hexToRgb(hex){
+  var r=parseInt(hex.slice(0,2),16);
+  var g=parseInt(hex.slice(2,4),16);
+  var b=parseInt(hex.slice(4,6),16);
+  return r+','+g+','+b;
+}
+
+function renderPrepConfig(){
+  var apps = getApps();
+  var h = '';
+
+  h += '<div style="background:var(--s1);border-radius:14px;padding:16px;margin-bottom:14px">';
+  h += '<div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:12px">Configure Your Prep Campaign</div>';
+
+  // Job source toggle
+  var src = STATE.prepSource || 'tracker';
+  h += '<div style="display:flex;gap:6px;margin-bottom:12px">';
+  h += '<button class="btn btn-xs" style="'+(src==='tracker'?'background:var(--accent);color:#fff':'background:var(--s2);color:var(--dim);border:1px solid var(--b1)')+'" onclick="setSilent(\'prepSource\',\'tracker\');render()">From Tracker</button>';
+  h += '<button class="btn btn-xs" style="'+(src==='paste'?'background:var(--accent);color:#fff':'background:var(--s2);color:var(--dim);border:1px solid var(--b1)')+'" onclick="setSilent(\'prepSource\',\'paste\');render()">Paste New JD</button>';
+  h += '</div>';
+
+  if(src==='tracker'){
+    if(!apps.length){
+      h += '<div style="color:var(--muted);font-size:12px;padding:12px 0">No jobs in tracker yet. Add jobs or paste a JD.</div>';
+    } else {
+      h += '<label class="lbl">Select Job from Tracker</label>';
+      h += '<select class="inp" id="prep-tracker-sel">';
+      h += '<option value="">Choose a job...</option>';
+      apps.forEach(function(a){
+        h += '<option value="'+esc(a.id)+'">'+esc(a.company)+' — '+esc(a.title)+'</option>';
+      });
+      h += '</select>';
+    }
+  } else {
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">';
+    h += '<div><label class="lbl">Job Title *</label><input class="inp" id="prep-custom-title" placeholder="e.g. Category Lead PM3"></div>';
+    h += '<div><label class="lbl">Company / Department</label><input class="inp" id="prep-custom-company" placeholder="e.g. Government of Manitoba"></div>';
+    h += '</div>';
+    h += '<label class="lbl">Full Job Description * <span style="color:var(--muted);font-weight:400">(paste complete JD for best results)</span></label>';
+    h += '<textarea class="ta" id="prep-custom-jd" rows="8" placeholder="Paste the complete job description here..."></textarea>';
+  }
+
+  // Level override
+  h += '<label class="lbl" style="margin-top:10px">Job Level <span style="color:var(--muted);font-weight:400">(auto-detected — override if needed)</span></label>';
+  h += '<select class="inp" id="prep-level-sel">';
+  Object.keys(PREP_LEVELS).forEach(function(k){
+    h += '<option value="'+k+'">'+PREP_LEVELS[k].label+' — '+PREP_LEVELS[k].range+'</option>';
+  });
+  h += '</select>';
+
+  h += '<button class="btn btn-full" style="background:var(--accent);color:#fff;font-weight:800;min-height:48px;font-size:14px;margin-top:12px" onclick="launchPrepCampaign()">&#127919; Launch Prep Campaign</button>';
+  h += '</div>';
+  return h;
+}
+
+function launchPrepCampaign(){
+  var src = STATE.prepSource || 'tracker';
+  var title='', company='', jd='', level='';
+
+  if(src==='tracker'){
+    var sel = el('prep-tracker-sel');
+    if(!sel||!sel.value){alert('Please select a job from your tracker.');return;}
+    var app = getApps().find(function(a){return a.id===sel.value;});
+    if(!app){alert('Job not found.');return;}
+    title = app.title; company = app.company; jd = app.jd||'';
+  } else {
+    title = (el('prep-custom-title')||{value:''}).value.trim();
+    company = (el('prep-custom-company')||{value:''}).value.trim();
+    jd = (el('prep-custom-jd')||{value:''}).value.trim();
+    if(!title||jd.length<30){alert('Please enter a job title and paste the full JD (at least a few sentences).');return;}
+  }
+
+  var levelSel = el('prep-level-sel');
+  if(levelSel&&levelSel.value){
+    level = levelSel.value;
+  } else {
+    level = detectLevel(title, jd);
+  }
+  if(!level) level = detectLevel(title, jd);
+
+  var industry = detectIndustry(title, jd);
+  var key = 'prep_'+Date.now();
+  var d = getPrepHQData();
+  d.sessions = d.sessions||{};
+  d.sessions[key] = { title:title, company:company, jd:jd, level:level, industry:industry, generated:{}, createdAt:new Date().toISOString().slice(0,10) };
+  savePrepHQData(d);
+  setSilent('prepActiveKey', key);
+  setSilent('prepView','dashboard');
+  render();
+}
+
+function renderPrepDashboard(d){
+  var key = STATE.prepActiveKey;
+  var sess = (d.sessions||{})[key];
+  if(!sess) return '<div style="color:var(--muted)">Session not found. <a onclick="setSilent(\'prepView\',\'home\');render()">Go back</a></div>';
+
+  var lvl = PREP_LEVELS[sess.level] || PREP_LEVELS.manager;
+  var gen = sess.generated||{};
+  var h = '';
+
+  // Role header
+  h += '<div style="background:var(--s1);border-radius:14px;padding:14px;margin-bottom:14px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+  h += '<div>';
+  h += '<div style="font-size:15px;font-weight:800;color:#fff">'+esc(sess.title)+'</div>';
+  h += '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+esc(sess.company||'')+(sess.industry?' &#183; '+esc(sess.industry):'')+'</div>';
+  h += '</div>';
+  h += '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba('+hexToRgb(lvl.color)+',0.2);color:#'+lvl.color+'">'+esc(lvl.label)+'</span>';
+  h += '</div>';
+  var total = lvl.competencies.length + PREP_STAGES.length + 1;
+  var done = Object.keys(gen).length;
+  h += '<div style="margin-top:10px">';
+  h += '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px"><span>Prep Progress</span><span>'+done+'/'+total+' modules</span></div>';
+  h += '<div style="background:rgba(255,255,255,.08);border-radius:3px;height:6px"><div style="background:linear-gradient(90deg,var(--accent),#16a34a);height:6px;border-radius:3px;width:'+Math.round((done/total)*100)+'%"></div></div>';
+  h += '</div></div>';
+
+  // SECTION 1: Competencies
+  h += renderDashSection('&#127919; Core Competencies for This Level', 'Required for '+esc(lvl.label)+' roles', function(){
+    var ch = '';
+    lvl.competencies.forEach(function(cid){
+      var comp = PREP_COMPETENCY_DEFS[cid]; if(!comp) return;
+      var isDone = !!gen['comp_'+cid];
+      ch += prepModuleCard(comp.icon+' '+comp.name, comp.short, isDone,
+        "setSilent('prepActiveComp','"+cid+"');setSilent('prepView','competency');render()");
+    });
+    return ch;
+  });
+
+  // SECTION 2: Interview Stages
+  h += renderDashSection('&#127908; Interview Stage Preparation', 'Tailored playbook for every format', function(){
+    var sh = '';
+    PREP_STAGES.forEach(function(stage){
+      var isDone = !!gen['stage_'+stage.id];
+      sh += prepModuleCard(stage.icon+' '+stage.name, stage.desc, isDone,
+        "setSilent('prepActiveStage','"+stage.id+"');setSilent('prepView','stage');render()");
+    });
+    return sh;
+  });
+
+  // SECTION 3: Narrative
+  h += renderDashSection('&#11088; Made for This Role — Your Narrative', 'The complete story that positions you as the answer', function(){
+    var isDone = !!gen['narrative'];
+    return prepModuleCard('&#11088; Signature Narrative', 'Your unique value proposition grounded in your actual background — for cover letters, openings, and closings.', isDone,
+      "setSilent('prepView','narrative');render()", true);
+  });
+
+  return h;
+}
+
+function renderDashSection(title, subtitle, contentFn){
+  var h = '<div style="margin-bottom:14px">';
+  h += '<div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:2px">'+title+'</div>';
+  h += '<div style="font-size:10px;color:var(--muted);margin-bottom:8px">'+subtitle+'</div>';
+  h += contentFn();
+  h += '</div>';
+  return h;
+}
+
+function prepModuleCard(title, desc, isDone, onclick, full){
+  var w = full ? '9.44' : '';
+  var h = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:11px;padding:11px 13px;margin-bottom:7px;cursor:pointer;'+(full?'':'display:inline-flex;width:calc(50% - 4px);margin-right:8px;vertical-align:top;')+'" onclick="'+onclick+'">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+  h += '<div style="flex:1">';
+  h += '<div style="font-size:12px;font-weight:700;color:'+( isDone?'#16a34a':'#fff')+';margin-bottom:3px">'+title+'</div>';
+  h += '<div style="font-size:10px;color:var(--muted)">'+desc+'</div>';
+  h += '</div>';
+  h += '<div style="font-size:14px;margin-left:8px;flex-shrink:0">'+(isDone?'<span style="color:#16a34a">&#10003;</span>':'<span style="color:var(--muted)">&#8250;</span>')+'</div>';
+  h += '</div></div>';
+  return h;
+}
+
+// ── COMPETENCY CRASH COURSE VIEW ─────────────────────────────────────────
+function renderPrepCompetencyView(d){
+  var key = STATE.prepActiveKey;
+  var cid = STATE.prepActiveComp;
+  var sess = (d.sessions||{})[key];
+  var comp = PREP_COMPETENCY_DEFS[cid];
+  if(!sess||!comp) return '<div style="color:var(--muted)">Loading...</div>';
+
+  var gen = sess.generated||{};
+  var cached = gen['comp_'+cid];
+  var h = '';
+
+  h += '<div style="background:var(--s1);border-radius:14px;padding:14px;margin-bottom:14px">';
+  h += '<div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:3px">'+comp.icon+' '+comp.name+'</div>';
+  h += '<div style="font-size:11px;color:var(--muted)">'+comp.short+'</div>';
+  h += '</div>';
+
+  if(STATE.prepCompLoading){
+    h += '<div style="background:var(--s1);border-radius:14px;padding:20px;text-align:center">';
+    h += '<span class="spin" style="width:24px;height:24px;border-width:3px;margin-bottom:12px"></span>';
+    h += '<div style="font-size:12px;color:var(--muted);margin-top:10px">Building your crash course...</div>';
+    h += '</div>';
+    return h;
+  }
+
+  if(cached){
+    h += '<div style="background:var(--s1);border-radius:14px;padding:16px">';
+    h += '<div style="font-size:12px;color:var(--dim);line-height:1.8;white-space:pre-wrap">'+esc(cached)+'</div>';
+    h += '</div>';
+    h += '<button class="btn bg-ghost btn-full" style="color:var(--muted);margin-top:8px;font-size:11px" onclick="regenerateCompetency(\''+cid+'\')">&#8635; Regenerate</button>';
+  } else {
+    h += '<div style="text-align:center;padding:20px">';
+    h += '<div style="font-size:28px;margin-bottom:10px">'+comp.icon+'</div>';
+    h += '<div style="font-size:13px;font-weight:700;color:var(--dim);margin-bottom:6px">Ready to generate your crash course</div>';
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:16px">Tailored to your background, the '+esc(sess.level)+' level, and the '+esc(sess.industry)+' industry.</div>';
+    h += '<button class="btn" style="background:var(--accent);color:#fff;font-weight:800;padding:12px 28px" onclick="generateCompetencyCourse(\''+cid+'\')">&#9999; Generate Crash Course</button>';
+    h += '</div>';
+  }
+  return h;
+}
+
+function renderPrepStageView(d){
+  var key = STATE.prepActiveKey;
+  var sid = STATE.prepActiveStage;
+  var sess = (d.sessions||{})[key];
+  var stage = PREP_STAGES.find(function(s){return s.id===sid;});
+  if(!sess||!stage) return '<div style="color:var(--muted)">Loading...</div>';
+  var gen = sess.generated||{};
+  var cached = gen['stage_'+sid];
+  var h = '';
+
+  h += '<div style="background:var(--s1);border-radius:14px;padding:14px;margin-bottom:14px">';
+  h += '<div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:3px">'+stage.icon+' '+stage.name+'</div>';
+  h += '<div style="font-size:11px;color:var(--muted)">'+stage.desc+'</div>';
+  h += '</div>';
+
+  if(STATE.prepStageLoading){
+    h += '<div style="background:var(--s1);border-radius:14px;padding:20px;text-align:center">';
+    h += '<span class="spin" style="width:24px;height:24px;border-width:3px"></span>';
+    h += '<div style="font-size:12px;color:var(--muted);margin-top:10px">Building your '+stage.name+' playbook...</div>';
+    h += '</div>';
+    return h;
+  }
+
+  if(cached){
+    h += '<div style="background:var(--s1);border-radius:14px;padding:16px">';
+    h += '<div style="font-size:12px;color:var(--dim);line-height:1.8;white-space:pre-wrap">'+esc(cached)+'</div>';
+    h += '</div>';
+    h += '<button class="btn bg-ghost btn-full" style="color:var(--muted);margin-top:8px;font-size:11px" onclick="regenerateStage(\''+sid+'\')">&#8635; Regenerate</button>';
+  } else {
+    h += '<div style="text-align:center;padding:20px">';
+    h += '<div style="font-size:28px;margin-bottom:10px">'+stage.icon+'</div>';
+    h += '<div style="font-size:13px;font-weight:700;color:var(--dim);margin-bottom:6px">Ready to build your '+stage.name+' playbook</div>';
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:16px">Specific to this role, your background, and the expectations at the '+esc(sess.level)+' level.</div>';
+    h += '<button class="btn" style="background:var(--accent);color:#fff;font-weight:800;padding:12px 28px" onclick="generateStagePrep(\''+sid+'\')">&#9999; Generate Playbook</button>';
+    h += '</div>';
+  }
+  return h;
+}
+
+function renderPrepNarrativeView(d){
+  var key = STATE.prepActiveKey;
+  var sess = (d.sessions||{})[key];
+  if(!sess) return '<div style="color:var(--muted)">Loading...</div>';
+  var cached = (sess.generated||{})['narrative'];
+  var h = '';
+
+  h += '<div style="background:var(--s1);border-radius:14px;padding:14px;margin-bottom:14px">';
+  h += '<div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:3px">&#11088; Made for This Role — Your Signature Narrative</div>';
+  h += '<div style="font-size:11px;color:var(--muted)">The complete story that connects your background to this specific role. Use it in your cover letter, opening statement, and closing pitch.</div>';
+  h += '</div>';
+
+  if(STATE.prepNarrativeLoading){
+    h += '<div style="background:var(--s1);border-radius:14px;padding:20px;text-align:center">';
+    h += '<span class="spin" style="width:24px;height:24px;border-width:3px"></span>';
+    h += '<div style="font-size:12px;color:var(--muted);margin-top:10px">Crafting your narrative...</div>';
+    h += '</div>';
+    return h;
+  }
+
+  if(cached){
+    h += '<div style="background:var(--s1);border-radius:14px;padding:16px">';
+    h += '<div style="font-size:12px;color:var(--dim);line-height:1.8;white-space:pre-wrap">'+esc(cached)+'</div>';
+    h += '</div>';
+    h += '<button class="btn bg-ghost btn-full" style="color:var(--muted);margin-top:8px;font-size:11px" onclick="regenerateNarrative()">&#8635; Regenerate</button>';
+  } else {
+    h += '<div style="text-align:center;padding:20px">';
+    h += '<div style="font-size:36px;margin-bottom:10px">&#11088;</div>';
+    h += '<div style="font-size:13px;font-weight:700;color:var(--dim);margin-bottom:6px">Generate your "made for this role" story</div>';
+    h += '<div style="font-size:11px;color:var(--muted);margin-bottom:16px;max-width:280px;margin-left:auto;margin-right:auto">Builds a compelling narrative that makes the panel feel they wrote this JD with you in mind.</div>';
+    h += '<button class="btn" style="background:var(--accent);color:#fff;font-weight:800;padding:12px 28px" onclick="generateNarrative()">&#9999; Generate Narrative</button>';
+    h += '</div>';
+  }
+  return h;
+}
+
+// ── AI GENERATION FUNCTIONS ──────────────────────────────────────────────
+async function generateCompetencyCourse(cid){
+  var key=STATE.prepActiveKey;
+  var d=getPrepHQData();
+  var sess=(d.sessions||{})[key]; if(!sess) return;
+  var comp=PREP_COMPETENCY_DEFS[cid]; if(!comp) return;
+  setSilent('prepCompLoading',true); render();
+  var profile=buildProfile();
+  var sys='You are a senior career coach specializing in government and professional sector preparation. '+getIntelligencePersona()+'\n\nCandidate profile:\n'+profile;
+  var prompt='ROLE: '+sess.title+'\nCOMPANY: '+sess.company+'\nLEVEL: '+PREP_LEVELS[sess.level].label+'\nINDUSTRY: '+sess.industry+'\nJOB DESCRIPTION:\n'+( sess.jd||'Not provided')+'\n\n---\n\nCreate a complete CRASH COURSE for the competency: "'+comp.name+'"\n\nStructure your response exactly as follows:\n\n## What This Competency Actually Means at the '+PREP_LEVELS[sess.level].label+' Level\n(2–3 sentences: what the employer is actually testing, not the dictionary definition)\n\n## Why It Matters in '+sess.industry+'\n(Specific to the industry and role — what happens when this competency is absent)\n\n## How YOUR Background Demonstrates This\n(Draw specifically from the candidate\'s real experience. Be concrete — name the situation, the scale, the outcome. Write in first person as if the candidate is reflecting.)\n\n## The STAR Story You Should Have Ready\nSituation: [specific situation from their background]\nTask: [what they needed to accomplish]\nAction: [exactly what they did — be specific about methods, tools, decisions]\nResult: [measurable outcome — numbers, percentages, recognition, impact]\n\n## How a Strong Candidate Sounds vs. an Average Candidate\nAverage: "[example of a weak answer — vague, generic, no evidence]"\nStrong: "[example of a strong answer — specific, evidence-based, outcome-focused]"\n\n## 3 Things to Practice Before the Interview\n(Specific, actionable preparation steps)';
+  try{
+    var result=await callClaude(sys,prompt,2500);
+    sess.generated['comp_'+cid]=result;
+    d.sessions[key]=sess;
+    savePrepHQData(d);
+  }catch(e){alert('Error: '+e.message);}
+  setSilent('prepCompLoading',false);
+  render();
+}
+function regenerateCompetency(cid){
+  var key=STATE.prepActiveKey;
+  var d=getPrepHQData();
+  var sess=(d.sessions||{})[key]; if(!sess) return;
+  delete sess.generated['comp_'+cid];
+  d.sessions[key]=sess;
+  savePrepHQData(d);
+  generateCompetencyCourse(cid);
+}
+
+async function generateStagePrep(sid){
+  var key=STATE.prepActiveKey;
+  var d=getPrepHQData();
+  var sess=(d.sessions||{})[key]; if(!sess) return;
+  var stage=PREP_STAGES.find(function(s){return s.id===sid;}); if(!stage) return;
+  setSilent('prepStageLoading',true); render();
+  var profile=buildProfile();
+  var lvl=PREP_LEVELS[sess.level];
+  var sys='You are an elite interview coach with deep experience in government and professional sector hiring. '+getIntelligencePersona()+'\n\nCandidate profile:\n'+profile;
+  var stageGuides = {
+    written: 'Written exercises test your ability to structure thinking, apply methodology, and communicate clearly under time pressure. Focus on: how to read the prompt strategically, how to structure the response, what evaluators are really scoring, common mistakes that tank scores, and how this candidate\'s specific background gives them an edge.',
+    phone: 'Phone screens test fit, communication, and baseline competency. Focus on: how to prepare in 30 minutes, what the recruiter is really checking, the 5 most likely questions, how to control the conversation, how to handle salary questions, and how to close with a strong interest statement.',
+    video: 'Video interviews add the visual layer. Focus on: camera/lighting/background setup, managing energy on screen (leaning in, pausing), eye contact with the camera not the screen, what to have notes on without looking like you\'re reading, specific questions for this level/industry, and how to read interviewer reactions.',
+    inperson1: 'Single interviewer is often the hiring manager. They want to confirm you\'re the person from the application. Focus on: the first 2 minutes (walk-in, handshake, small talk), how to read this interviewer\'s style quickly, questions that reveal what they really care about, how to tell stories conversationally (not like a rehearsed speech), and how to close by asking for the job.',
+    panel: 'Panel interviews are won by managing the room, not just answering questions. Focus on: how to address all panelists when answering one person\'s question, reading panel dynamics (who\'s the decision-maker, who\'s skeptical), handling the "challenge" question without getting defensive, using the panel format to show leadership presence, and the first 60 seconds when you enter.',
+    multistage: 'Multi-stage processes require consistency with escalating depth. Focus on: maintaining the same core narrative across rounds while going deeper, what to do between rounds (research, follow-up notes), how to show growth from stage to stage, managing nerves across a weeks-long process, and the strategy for final rounds where all candidates are qualified.',
+  };
+  var prompt='ROLE: '+sess.title+'\nCOMPANY: '+sess.company+'\nLEVEL: '+lvl.label+'\nINDUSTRY: '+sess.industry+'\nJOB DESCRIPTION:\n'+(sess.jd||'Not provided')+'\n\nSTAGE: '+stage.name+'\n\n'+stageGuides[sid]+'\n\n---\n\nCreate a complete PREPARATION PLAYBOOK for the '+stage.name+' stage of this specific application.\n\nInclude:\n1. What they are testing at this stage for a '+lvl.label+' role\n2. This candidate\'s 3 biggest advantages going into this stage\n3. The 6 most likely questions (role-specific, not generic) with strong suggested answers using their actual background\n4. The 2 questions they should dread and how to handle them confidently\n5. What to do in the 24 hours before and the 30 minutes before\n6. How to open and close this specific stage format\n7. One thing most candidates get wrong at this stage that this candidate must avoid';
+  try{
+    var result=await callClaude(sys,prompt,3000);
+    sess.generated['stage_'+sid]=result;
+    d.sessions[key]=sess;
+    savePrepHQData(d);
+  }catch(e){alert('Error: '+e.message);}
+  setSilent('prepStageLoading',false);
+  render();
+}
+function regenerateStage(sid){
+  var key=STATE.prepActiveKey;
+  var d=getPrepHQData();
+  var sess=(d.sessions||{})[key]; if(!sess) return;
+  delete sess.generated['stage_'+sid];
+  d.sessions[key]=sess;
+  savePrepHQData(d);
+  generateStagePrep(sid);
+}
+
+async function generateNarrative(){
+  var key=STATE.prepActiveKey;
+  var d=getPrepHQData();
+  var sess=(d.sessions||{})[key]; if(!sess) return;
+  setSilent('prepNarrativeLoading',true); render();
+  var profile=buildProfile();
+  var lvl=PREP_LEVELS[sess.level];
+  var sys='You are a master storyteller and career strategist. '+getIntelligencePersona()+'\n\nCandidate profile:\n'+profile;
+  var prompt='ROLE: '+sess.title+'\nCOMPANY: '+sess.company+'\nLEVEL: '+lvl.label+'\nINDUSTRY: '+sess.industry+'\nJOB DESCRIPTION:\n'+(sess.jd||'Not provided')+'\n\n---\n\nCreate the complete "Made for This Role" narrative package for this candidate. This is the story that, when delivered, makes the panel feel they wrote this JD with this person in mind.\n\n## Why This Role Was Made for You (The Thesis)\n(2–3 powerful sentences that connect the candidate\'s specific career arc to the precise problems this role exists to solve)\n\n## Your 3-Point Value Statement\n(Three distinct, evidence-based reasons this employer should choose this candidate over anyone else. Each point: [Claim] + [Evidence from their background] + [Outcome it delivers for the employer])\n\n## Cover Letter Opening Paragraph\n(First-person, 80–100 words, specific to this role — not a template. Makes them keep reading.)\n\n## Interview Opening Statement (Tell Me About Yourself — 90 Seconds)\n(Script the ideal answer. Starts with the thesis, builds through the value statement, lands on why they\'re here today. Conversational, not robotic.)\n\n## The Closing Statement (Why Should We Hire You)\n(60-second closing pitch. Confident, specific, forward-looking — not a summary of what was already said.)\n\n## The 3 Things That Make This Candidate Unforgettable\n(What the panel will remember and talk about after the interview is over — specific differentiators, not generic strengths)';
+  try{
+    var result=await callClaude(sys,prompt,3000);
+    sess.generated['narrative']=result;
+    d.sessions[key]=sess;
+    savePrepHQData(d);
+  }catch(e){alert('Error: '+e.message);}
+  setSilent('prepNarrativeLoading',false);
+  render();
+}
+function regenerateNarrative(){
+  var key=STATE.prepActiveKey;
+  var d=getPrepHQData();
+  var sess=(d.sessions||{})[key]; if(!sess) return;
+  delete sess.generated['narrative'];
+  d.sessions[key]=sess;
+  savePrepHQData(d);
+  generateNarrative();
+}
+</script>
 
 <div id="app">
   <div class="topbar" id="topbar">
